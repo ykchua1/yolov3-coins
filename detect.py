@@ -183,7 +183,7 @@ colors = pkl.load(open("pallete", "rb"))
 draw = time.time()
 
 
-def write(x, results): # what does this do??
+def write(x, results): # 
     c1 = tuple(x[1:3].int())
     c2 = tuple(x[3:5].int())
     img = results[int(x[0])]

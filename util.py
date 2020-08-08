@@ -121,7 +121,7 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
         seq = (image_pred[:,:5], max_conf, max_conf_score)
         image_pred = torch.cat(seq, 1)
         
-        non_zero_ind =  (torch.nonzero(image_pred[:,4]))
+        non_zero_ind =  (torch.nonzero(image_pred[:,4], as_tuple=False))
         try:
             image_pred_ = image_pred[non_zero_ind.squeeze(),:].view(-1,7)
         except:
@@ -141,7 +141,7 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
         
             #get the detections with one particular class
             cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
-            class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
+            class_mask_ind = torch.nonzero(cls_mask[:,-2], as_tuple=False).squeeze()
             image_pred_class = image_pred_[class_mask_ind].view(-1,7)
             
             #sort the detections such that the entry with the maximum objectness
@@ -166,7 +166,7 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
                 image_pred_class[i+1:] *= iou_mask       
             
                 #Remove the non-zero entries
-                non_zero_ind = torch.nonzero(image_pred_class[:,4]).squeeze()
+                non_zero_ind = torch.nonzero(image_pred_class[:,4], as_tuple=False).squeeze()
                 image_pred_class = image_pred_class[non_zero_ind].view(-1,7)
                 
             batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)      #Repeat the batch_id for as many detections of the class cls in the image
