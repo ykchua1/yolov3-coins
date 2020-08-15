@@ -213,3 +213,209 @@ def load_classes(namesfile):
     fp = open(namesfile, "r")
     names = fp.read().split("\n")[:-1]
     return names
+
+def transform_b2t(pred, anchors=[(10,13),  (16,30),  (33,23),  (30,61),  (62,45),  (59,119),  (116,90),  (156,198),  (373,326)]): 
+    """
+    pred should be a tensor of shape (batches * 10647 * (5 + num_classes))
+    pred coordinates have ranges of 13*13, 26*26 and 52*52
+    
+    """
+    batch_size = pred.shape[0]
+    
+    # x and y coordinates transformation
+    cx1 = torch.tensor([x % 13 for x in range(13**2)]).float()
+    cx2 = torch.tensor([x % 26 for x in range(26**2)]).float()
+    cx3 = torch.tensor([x % 52 for x in range(52**2)]).float()
+    cx = torch.cat([cx1, cx2, cx3]).repeat_interleave(3)
+    
+    cy1 = torch.tensor([x // 13 for x in range(13**2)]).float()
+    cy2 = torch.tensor([x // 26 for x in range(26**2)]).float()
+    cy3 = torch.tensor([x // 52 for x in range(52**2)]).float()
+    cy = torch.cat([cy1, cy2, cy3]).repeat_interleave(3)
+    
+    c = torch.cat([cx.unsqueeze(1), cy.unsqueeze(1)], 1) # outputs 10647 * 2 tensor
+    c = c.repeat(batch_size, 1, 1) # outputs batches * 10647 * 2 tensor
+    
+    pred[:,:,:2] = torch.log((pred[:,:,:2] - c) / (1 - pred[:,:,:2] + c))
+    
+    # width and height dimension transformation
+    stride1 = torch.tensor([32 for i in range(3*13**2)])
+    stride2 = torch.tensor([16 for i in range(3*26**2)])
+    stride3 = torch.tensor([8 for i in range(3*52**2)])
+    strides = torch.cat([stride1, stride2, stride3], 0).float() # size 10647 tensor
+    
+    pw = torch.tensor([]).float()
+    ph = torch.tensor([]).float()
+    for i, dim in enumerate([13, 26, 52]):
+        pw_tmp = torch.tensor([x[0] for x in anchors[6-3*i : 9-3*i]]).float().repeat(dim**2)
+        pw = torch.cat([pw, pw_tmp], 0)
+        
+        ph_tmp = torch.tensor([x[1] for x in anchors[6-3*i : 9-3*i]]).float().repeat(dim**2)
+        ph = torch.cat([ph, ph_tmp], 0)
+    pw /= strides
+    ph /= strides
+    p = torch.cat([pw.unsqueeze(1), ph.unsqueeze(1)], 1) # outputs 10647 * 2 tensor
+    p = p.repeat(batch_size, 1, 1) # outputs batches * 10647 * 2 tensor
+    
+    pred[:,:,2:4] = torch.log(pred[:,:,2:4] / p)
+    
+    return pred
+
+def create_objbb_dict(fp, iou_thresh=0.5):
+    """
+    returns objbb_dict
+    
+    """
+    
+    def find_row(x, y, stride=32): # gets the row number of the first bounding box assigned to the xy position
+        assert stride in (32, 16, 8)
+        baserow = {32: 0, 16: 3*13**2, 8: 3*13**2+3*26**2}[stride]
+        
+        if stride == 32:
+            x_index = x // (1/13)
+            y_index = y // (1/13)
+            cell_index = 13*y_index + x_index
+            rel_row = cell_index * 3
+            return baserow + rel_row
+        
+        if stride == 16:
+            x_index = x // (1/26)
+            y_index = y // (1/26)
+            cell_index = 26*y_index + x_index
+            rel_row = cell_index * 3
+            return baserow + rel_row
+        
+        if stride == 8:
+            x_index = x // (1/52)
+            y_index = y // (1/52)
+            cell_index = 52*y_index + x_index
+            rel_row = cell_index * 3
+            return int(baserow + rel_row)
+        
+    def find_iou(x, y, w, h, row): # bb is the bounding box number (0, 1 or 2)
+        if row < 3*13**2:
+            stride = 32
+        elif row < 3*26**2:
+            stride = 16
+        else:
+            stride = 8
+        
+        bb = row % 3
+        
+        anchor_index = {32: 6, 16: 3, 8: 0}[stride] + bb
+        anchor_index = int(anchor_index)
+        filter_dim = {32: 13, 16: 26, 8: 52}[stride]
+        x_coord416 = (x // (1/filter_dim)) * float(stride)
+        y_coord416 = (y // (1/filter_dim)) * float(stride)
+        
+        anchors = [(10,13),  (16,30),  (33,23),  (30,61),  (62,45),  (59,119),  (116,90),  (156,198),  (373,326)]
+        
+        b1x1, b1x2 = ((x - w/2)*416.0, (x + w/2)*416.0)
+        b1y1, b1y2 = ((y - h/2)*416.0, (y + h/2)*416.0)
+        b2x1, b2x2 = (x_coord416 - anchors[anchor_index][0]/2, x_coord416 + anchors[anchor_index][0]/2)
+        b2y1, b2y2 = (y_coord416 - anchors[anchor_index][1]/2, y_coord416 + anchors[anchor_index][1]/2)
+        
+        box1 = torch.tensor([[b1x1, b1y1, b1x2, b1y2]]).clamp(min=0, max=416) # box1 is the groundtruth bounding box
+        box2 = torch.tensor([[b2x1, b2y1, b2x2, b2y2]]).clamp(min=0, max=416) # box2 is the anchor
+        
+        iou = bbox_iou(box1, box2)
+        
+        return iou
+        
+    with open(fp) as f:
+        lines = f.readlines()
+        
+    objbb_dict = {}
+    for i, line in enumerate(lines): # iterate thru objects
+        sp = line.split()
+        
+        x, y, w, h = (float(sp[1]), float(sp[2]), float(sp[3]), float(sp[4]))
+        bounding_box_rows = [find_row(x, y, stride=32) + bb for bb in range(3)]
+        bounding_box_rows += [find_row(x, y, stride=16) + bb for bb in range(3)]
+        bounding_box_rows += [find_row(x, y, stride=8) + bb for bb in range(3)] # bounding_box_rows is len 9
+        objbb_dict[i] = [int(sp[0]), [(int(row), find_iou(x, y, w, h, row)) for row in bounding_box_rows]]
+        
+        objbb_dict[i][1].sort(key = lambda x: x[1], reverse=True) # sort the bbs by iou (reversed) 
+        objbb_dict[i][1][1:] = list(filter(lambda x: x[1] > iou_thresh, objbb_dict[i][1][1:])) # filters the bbs by threshold
+        
+        objbb_dict[i].append((x, y, w, h))
+        
+    return objbb_dict
+
+def create_training_mask_1(pred, fp_list, iou_thresh=0.5): # mask 1 allows detection rows only
+    """
+    takes in batches * 10647 * (5 + num_classes) tensor as input
+    
+    returns a training mask tensor
+    
+    fp is the file path the annotation data
+    
+    """
+    
+    assert len(fp_list) == int(pred.shape[0])
+    
+    training_mask = 1e-6*torch.ones(pred.shape).float()
+    
+    for i, fp in enumerate(fp_list):
+        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh)
+    
+        for key, value in objbb_dict.items():
+            det_row = value[1][0][0] # row of assigned bounding box
+            training_mask[i,det_row,:] = 1
+        
+    return training_mask
+
+def create_training_mask_2(pred, fp_list, iou_thresh=0.5): # mask 2 enables no object loss
+    """
+    takes in batches * 10647 * (5 + num_classes) tensor as input
+    
+    returns a training mask tensor
+    
+    fp is the file path the annotation data
+    
+    """
+    
+    assert len(fp_list) == int(pred.shape[0])
+     
+    training_mask = 1e-6*torch.ones(pred.shape).float()
+    training_mask[:,:,4] = 1
+    
+    for i, fp in enumerate(fp_list):
+        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh)
+        
+        for key, value in objbb_dict.items():
+            num_valid_bb = len(value[1]) # the number of valid bounding boxes for the object
+            
+            for j in range(num_valid_bb):
+                sec_row = value[1][j][0] # secondary rows consist of all valid bbs (best bb or iou above thresh)
+                training_mask[i,sec_row,4] = 1e-6 # remove no-object loss for boxes above iou threshold
+    
+    return training_mask
+
+def create_groundtruth(pred, fp_list):
+    """
+    returns groundtruth tensor (batches * 10647 * (5 + num_classes))
+    
+    groundtruth tensor coordinate values have range [0, 1]
+    
+    """
+    assert len(fp_list) == int(pred.shape[0])
+    
+    groundtruth = torch.zeros(pred.shape).float()
+    
+    for i, fp in enumerate(fp_list):
+        objbb_dict = create_objbb_dict(fp)
+        
+        for key, value in objbb_dict.items():
+            det_row = value[1][0][0]
+
+            groundtruth[i,det_row,:4] = torch.tensor(value[2]) # value[2] is tuple (x, y, w, h)
+            groundtruth[i,det_row,4] = 1 # assign is_object
+            groundtruth[i,det_row,int(5+value[0])] = 1 # assign class
+        
+    return groundtruth
+
+def cross_entropy(inp, tar):
+    output = -(tar[:,:,4:]*torch.log(inp[:,:,4:]) + (1 - tar[:,:,4:])*torch.log(1 - inp[:,:,4:]))
+    output = torch.sum(output)
+    return output
