@@ -170,12 +170,13 @@ class Darknet(nn.Module):
         self.blocks = parse_cfg(cfgfile)
         self.net_info, self.module_list = create_modules(self.blocks)
         
-    def forward(self, x, CUDA):
+    def forward(self, x, CUDA, training=False):
         modules = self.blocks[1:]
         outputs = {}   #We cache the outputs for the route layer
         
         write = 0
         for i, module in enumerate(modules):        
+            
             module_type = (module["type"])
             
             if module_type == "convolutional" or module_type == "upsample":
@@ -213,7 +214,8 @@ class Darknet(nn.Module):
                 num_classes = int (module["classes"])
         
                 #Transform 
-                x = x.data
+                if not training:
+                    x = x.data
                 x = predict_transform(x, inp_dim, anchors, num_classes, CUDA)
                 if not write:              #if no collector has been intialised. 
                     detections = x
