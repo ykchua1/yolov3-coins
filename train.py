@@ -9,6 +9,7 @@ from darknet import Darknet
 from random import shuffle
 import argparse
 import torch.optim as optim
+from functools import reduce
 
 CUDA = torch.cuda.is_available()
 
@@ -39,11 +40,12 @@ if args.start_or_continue == "start":
     # reset the loss log
     with open("loss.txt", "w") as f:
         pass
+    prev_epoch = 0
 elif args.start_or_continue == "continue":
     # load state_dict
     checkpoint = torch.load("checkpoint.pkl")
     model.load_state_dict(checkpoint["model_state_dict"])
-    epoch = checkpoint["epoch"]
+    prev_epoch = checkpoint["epoch"] + 1
     loss = checkpoint["loss"]
     
     optimizer = optim.Adam(model.parameters())
@@ -62,7 +64,7 @@ if CUDA:
     
 lambda_coord = 0.01
 lambda_noobj = 0.1
-batch_size = 2
+batch_size = 3
 epochs = args.epochs
 num_train = 21
 lr = 0.001
@@ -78,7 +80,7 @@ imlist = [os.path.join("./data/scattered_coins/", x) for x in imlist]
 imlist = imlist[:num_train]
 
 for epoch in range(epochs):
-    print("Starting epoch: {}".format(epoch))
+    print("Starting epoch: {}".format(prev_epoch + epoch))
     
     shuffle(imlist)
     if (len(imlist) % batch_size): leftover = 1
@@ -91,6 +93,8 @@ for epoch in range(epochs):
         im_batches = [im_batch.to(torch.device("cuda")) for im_batch in im_batches]
     
     for i, batch in enumerate(im_batches):
+        loss_sum = [torch.tensor(0.0) for i in range(3)]
+        
         fp_list = [imlist[i*batch_size + x][:-4]+".txt" for x in range(batch.shape[0])]
         
         optimizer.zero_grad()
@@ -118,16 +122,22 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
         
-    print(sq_err_loss, cross_entr_loss, cross_entr_loss_noobj)
+        loss_sum = [loss_sum[a] + b for a, b in enumerate([sq_err_loss, cross_entr_loss, cross_entr_loss_noobj])]
+        
+    loss_mean = [x / num_train for x in loss_sum]
+    total_loss_mean = [reduce((lambda x, y: x + y), loss_mean)]
+    print("loss means: ", loss_mean)
+    print("total loss mean: ", total_loss_mean)
     
-    # save to pkl every epoch
-    torch.save({
-        "epoch": epoch,
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "loss": loss}, "checkpoint.pkl")
+    # save to pkl every 5 epoch
+    if (prev_epoch + epoch) % 5 == 0:
+        torch.save({
+            "epoch": prev_epoch + epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": loss}, "checkpoint.pkl")
     # write to loss log
     with open("loss.txt", "a") as f:
-        total_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
-        line = ", ".join([str(int(a)) for a in (sq_err_loss, cross_entr_loss, cross_entr_loss_noobj, total_loss)])
-        f.write()
+        line = ", ".join([str(float(a)) for a in loss_mean + total_loss_mean])
+        line = str(prev_epoch + epoch) + ", " + line
+        f.write(line + "\n")
