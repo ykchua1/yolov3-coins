@@ -7,15 +7,24 @@ from util import *
 import os
 from darknet import Darknet
 from random import shuffle
+import argparse
+import torch.optim as optim
 
 CUDA = torch.cuda.is_available()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("start_or_continue", help="indicate to train from start or to continue")
+parser.add_argument("epochs", help="how many epochs to train", type=int)
+args = parser.parse_args()
+assert args.start_or_continue
 
 # set up the neural network
 print("Loading network...")
 cfgfile = os.path.abspath("cfg/yolov3.cfg") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/cfg/yolov3.cfg"
-weightsfile = os.path.abspath("yolov3.weights") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/yolov3.weights"
 model = Darknet(cfgfile)
-model.load_weights(weightsfile)
+if args.start_or_continue == "start":
+    weightsfile = os.path.abspath("yolov3.weights") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/yolov3.weights"
+    model.load_weights(weightsfile)
 print("Network successfully loaded")
 
 # swap out the layers before YOLO and the classes in the YOLO layers
@@ -26,18 +35,38 @@ for i in det_layers:
     model.blocks[i+1]["classes"] = 4
 print("Layers have been swapped out")    
 
-if CUDA:
-    model.to(torch.device("cuda"))
+if args.start_or_continue == "start":
+    # reset the loss log
+    with open("loss.txt", "w") as f:
+        pass
+elif args.start_or_continue == "continue":
+    # load state_dict
+    checkpoint = torch.load("checkpoint.pkl")
+    model.load_state_dict(checkpoint["model_state_dict"])
+    epoch = checkpoint["epoch"]
+    loss = checkpoint["loss"]
+    
+    optimizer = optim.Adam(model.parameters())
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    
+
+
+    
+    
+    
+    
 
 # training loop
+if CUDA:
+    model.to(torch.device("cuda"))
+    
 lambda_coord = 0.01
 lambda_noobj = 0.1
 batch_size = 2
-epochs = 1
+epochs = args.epochs
 num_train = 21
 lr = 0.001
 
-import torch.optim as optim
 optimizer = optim.Adam(model.parameters(), lr=lr)
 mse_loss = nn.MSELoss(reduction='sum')
 if CUDA:
@@ -68,7 +97,6 @@ for epoch in range(epochs):
         model.train()
         
         inp = model(batch, CUDA, training=True)
-        print("Does inp require grad?", inp.requires_grad)
          
         mask1 = create_training_mask_1(inp, fp_list, iou_thresh=0.5)
         mask2 = create_training_mask_2(inp, fp_list, iou_thresh=0.5)
@@ -90,4 +118,16 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
         
-        print(sq_err_loss, cross_entr_loss, cross_entr_loss_noobj)
+    print(sq_err_loss, cross_entr_loss, cross_entr_loss_noobj)
+    
+    # save to pkl every epoch
+    torch.save({
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "loss": loss}, "checkpoint.pkl")
+    # write to loss log
+    with open("loss.txt", "a") as f:
+        total_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
+        line = ", ".join([str(int(a)) for a in (sq_err_loss, cross_entr_loss, cross_entr_loss_noobj, total_loss)])
+        f.write()
