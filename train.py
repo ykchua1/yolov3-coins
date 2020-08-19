@@ -95,6 +95,7 @@ for epoch in range(epochs):
     val_im_batches = [torch.cat(val_im_batches)]
     if CUDA:
         im_batches = [im_batch.to(torch.device("cuda")) for im_batch in im_batches]
+        val_im_batches = [val_im_batches[0].to(torch.device("cuda"))]
     
     for i, batch in enumerate(im_batches):
         loss_sum = [torch.tensor(0.0) for i in range(3)]
@@ -143,7 +144,7 @@ for epoch in range(epochs):
     # get the validation losses (code copied training loss section)
     fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
     model.eval()
-    outp = model(val_im_batches[0], CUDA, training=False)
+    outp = model(val_im_batches[0], CUDA, training=True)
     mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
     mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
     targ = create_groundtruth(outp, fp_list)
@@ -158,10 +159,10 @@ for epoch in range(epochs):
         zero_tensor = zero_tensor.to(torch.device("cuda"))
     cross_entr_loss_noobj = lambda_noobj * cross_entropy(mask2*outp, zero_tensor)
     val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
-    print(val_loss)
+    print(cross_entr_loss_noobj)############################################################################333
     # write to loss log
     with open("loss.txt", "a") as f:
         line = ", ".join([str(float(a)) for a in loss_mean + total_loss_mean])
         line = str(prev_epoch + epoch) + ", " + line
-        line = line + ", " str(float(val_loss))
+        line = line + ", " + str(float(val_loss))
         f.write(line + "\n")
