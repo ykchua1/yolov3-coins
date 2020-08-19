@@ -77,8 +77,7 @@ if CUDA:
 imlist = os.listdir("./data/scattered_coins/")
 imlist = list(filter(lambda x: x.split('.')[-1] == "jpg", imlist))
 imlist = [os.path.join("./data/scattered_coins/", x) for x in imlist]
-imlist = imlist[:num_train]
-val_im_list = imlist[num_train:]
+imlist, val_im_list = (imlist[:num_train], imlist[num_train:])
 
 for epoch in range(epochs):
     print("Starting epoch: {}".format(prev_epoch + epoch))
@@ -90,6 +89,10 @@ for epoch in range(epochs):
     num_batches = len(imlist) // batch_size + leftover
     im_batches = list(map(prep_image, loaded_ims, [416 for x in range(len(loaded_ims))]))
     im_batches = [torch.cat((im_batches[i*batch_size : min((i+1)*batch_size, len(im_batches))])) for i in range(num_batches)]
+    
+    val_loaded_ims = [cv2.imread(x) for x in val_im_list]
+    val_im_batches = list(map(prep_image, val_loaded_ims, [416 for x in range(len(val_loaded_ims))]))
+    val_im_batches = [torch.cat(val_im_batches)]
     if CUDA:
         im_batches = [im_batch.to(torch.device("cuda")) for im_batch in im_batches]
     
@@ -137,8 +140,27 @@ for epoch in range(epochs):
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "loss": loss}, "checkpoint.pkl")
+    # get the validation losses (code copied training loss section)
+    fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
+    model.eval()
+    outp = model(val_im_batches[0], CUDA, training=False)
+    mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
+    mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
+    targ = create_groundtruth(outp, fp_list)
+    if CUDA:
+        mask1 = mask1.to(torch.device("cuda"))
+        mask2 = mask2.to(torch.device("cuda"))
+        targ = targ.to(torch.device("cuda"))
+    sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
+    cross_entr_loss = cross_entropy(mask1*outp, targ)
+    zero_tensor = torch.zeros(outp.shape)
+    if CUDA:
+        zero_tensor = zero_tensor.to(torch.device("cuda"))
+    cross_entr_loss_noobj = lambda_noobj * cross_entropy(mask2*outp, zero_tensor)
+    val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
     # write to loss log
     with open("loss.txt", "a") as f:
         line = ", ".join([str(float(a)) for a in loss_mean + total_loss_mean])
         line = str(prev_epoch + epoch) + ", " + line
+        line = line + ", " str(float(val_loss))
         f.write(line + "\n")
