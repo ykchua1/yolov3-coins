@@ -158,6 +158,7 @@ for epoch in range(epochs):
         zero_tensor = zero_tensor.to(torch.device("cuda"))
     cross_entr_loss_noobj = lambda_noobj * cross_entropy(mask2*outp, zero_tensor)
     val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
+    print(val_loss)
     # write to loss log
     with open("loss.txt", "a") as f:
         line = ", ".join([str(float(a)) for a in loss_mean + total_loss_mean])
