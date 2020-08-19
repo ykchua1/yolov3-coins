@@ -78,6 +78,7 @@ imlist = os.listdir("./data/scattered_coins/")
 imlist = list(filter(lambda x: x.split('.')[-1] == "jpg", imlist))
 imlist = [os.path.join("./data/scattered_coins/", x) for x in imlist]
 imlist = imlist[:num_train]
+val_im_list = imlist[num_train:]
 
 for epoch in range(epochs):
     print("Starting epoch: {}".format(prev_epoch + epoch))
@@ -100,23 +101,23 @@ for epoch in range(epochs):
         optimizer.zero_grad()
         model.train()
         
-        inp = model(batch, CUDA, training=True)
+        outp = model(batch, CUDA, training=True)
          
-        mask1 = create_training_mask_1(inp, fp_list, iou_thresh=0.5)
-        mask2 = create_training_mask_2(inp, fp_list, iou_thresh=0.5)
+        mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
+        mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
 
-        targ = create_groundtruth(inp, fp_list)
+        targ = create_groundtruth(outp, fp_list)
         if CUDA:
             mask1 = mask1.to(torch.device("cuda"))
             mask2 = mask2.to(torch.device("cuda"))
             targ = targ.to(torch.device("cuda"))
         
-        sq_err_loss = lambda_coord * mse_loss((mask1*inp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
-        cross_entr_loss = cross_entropy(mask1*inp, targ)
-        zero_tensor = torch.zeros(inp.shape)
+        sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
+        cross_entr_loss = cross_entropy(mask1*outp, targ)
+        zero_tensor = torch.zeros(outp.shape)
         if CUDA:
             zero_tensor = zero_tensor.to(torch.device("cuda"))
-        cross_entr_loss_noobj = lambda_noobj * cross_entropy(mask2*inp, zero_tensor)
+        cross_entr_loss_noobj = lambda_noobj * cross_entropy(mask2*outp, zero_tensor)
         
         loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
         loss.backward()
