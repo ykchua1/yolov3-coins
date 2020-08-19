@@ -77,7 +77,7 @@ if CUDA:
 imlist = os.listdir("./data/scattered_coins/")
 imlist = list(filter(lambda x: x.split('.')[-1] == "jpg", imlist))
 imlist = [os.path.join("./data/scattered_coins/", x) for x in imlist]
-imlist, val_im_list = (imlist[:num_train], imlist[num_train:])
+imlist, val_im_list = (imlist[:num_train], imlist[num_train:num_train+3])
 
 for epoch in range(epochs):
     print("Starting epoch: {}".format(prev_epoch + epoch))
@@ -143,7 +143,7 @@ for epoch in range(epochs):
             "loss": loss}, "checkpoint.pkl")
     # get the validation losses (code copied training loss section)
     fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
-    model.eval()
+    #model.eval()
     outp = model(val_im_batches[0], CUDA, training=True)
     mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
     mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
@@ -159,7 +159,7 @@ for epoch in range(epochs):
         zero_tensor = zero_tensor.to(torch.device("cuda"))
     cross_entr_loss_noobj = lambda_noobj * cross_entropy(mask2*outp, zero_tensor)
     val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
-    print(cross_entr_loss_noobj)############################################################################333
+    print(val_loss)############################################################################333
     # write to loss log
     with open("loss.txt", "a") as f:
         line = ", ".join([str(float(a)) for a in loss_mean + total_loss_mean])
