@@ -106,17 +106,19 @@ for epoch in range(epochs):
         model.train()
         
         outp = model(batch, CUDA, training=True)
+        transform_b2t(outp, CUDA=CUDA)
          
         mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
         mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
 
         targ = create_groundtruth(outp, fp_list)
+        targ[:,:,:4] = targ[:,:,:4]*416/strides()
         if CUDA:
             mask1 = mask1.to(torch.device("cuda"))
             mask2 = mask2.to(torch.device("cuda"))
             targ = targ.to(torch.device("cuda"))
         
-        sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
+        sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], transform_b2t(targ[:,:,:4], CUDA=CUDA))
         cross_entr_loss = cross_entropy(mask1*outp, targ)
         zero_tensor = torch.zeros(outp.shape)
         if CUDA:
@@ -145,14 +147,16 @@ for epoch in range(epochs):
     fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
     #model.eval()
     outp = model(val_im_batches[0], CUDA, training=True)
+    transform_b2t(outp, CUDA=CUDA)
     mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
     mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
     targ = create_groundtruth(outp, fp_list)
+    targ[:,:,:4] = targ[:,:,:4]*416/strides()
     if CUDA:
         mask1 = mask1.to(torch.device("cuda"))
         mask2 = mask2.to(torch.device("cuda"))
         targ = targ.to(torch.device("cuda"))
-    sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
+    sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], transform_b2t(targ[:,:,:4], CUDA=CUDA))
     cross_entr_loss = cross_entropy(mask1*outp, targ)
     zero_tensor = torch.zeros(outp.shape)
     if CUDA:
