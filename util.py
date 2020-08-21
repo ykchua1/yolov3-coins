@@ -214,7 +214,7 @@ def load_classes(namesfile):
     names = fp.read().split("\n")[:-1]
     return names
 
-def transform_b2t(pred, anchors=[(10,13),  (16,30),  (33,23),  (30,61),  (62,45),  (59,119),  (116,90),  (156,198),  (373,326)]): 
+def transform_b2t(pred, CUDA=True, anchors=[(10,13),  (16,30),  (33,23),  (30,61),  (62,45),  (59,119),  (116,90),  (156,198),  (373,326)]): 
     """
     pred should be a tensor of shape (batches * 10647 * (5 + num_classes))
     pred coordinates have ranges of 13*13, 26*26 and 52*52
@@ -235,6 +235,8 @@ def transform_b2t(pred, anchors=[(10,13),  (16,30),  (33,23),  (30,61),  (62,45)
     
     c = torch.cat([cx.unsqueeze(1), cy.unsqueeze(1)], 1) # outputs 10647 * 2 tensor
     c = c.repeat(batch_size, 1, 1) # outputs batches * 10647 * 2 tensor
+    if CUDA:
+        c = c.to(torch.device("cuda"))
     
     pred[:,:,:2] = torch.log((pred[:,:,:2] - c) / (1 - pred[:,:,:2] + c))
     
@@ -256,6 +258,8 @@ def transform_b2t(pred, anchors=[(10,13),  (16,30),  (33,23),  (30,61),  (62,45)
     ph /= strides
     p = torch.cat([pw.unsqueeze(1), ph.unsqueeze(1)], 1) # outputs 10647 * 2 tensor
     p = p.repeat(batch_size, 1, 1) # outputs batches * 10647 * 2 tensor
+    if CUDA:
+        p = p.to(torch.device("cuda"))
     
     pred[:,:,2:4] = torch.log(pred[:,:,2:4] / p)
     
