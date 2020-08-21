@@ -423,3 +423,14 @@ def cross_entropy(inp, tar):
     output = -(tar[:,:,4:]*torch.log(inp[:,:,4:]) + (1 - tar[:,:,4:])*torch.log(1 - inp[:,:,4:]))
     output = torch.sum(output)
     return output
+
+def strides(CUDA=True):
+    strds = torch.ones(10647).float()
+    if CUDA:
+        strds = strds.to(torch.device("cuda"))
+    
+    strds[:13**2*3] *= 32.
+    strds[13**2*3:13**2*3+26**2*3] *= 16.
+    strds[13**2*3+26**2*3:] *= 8.
+    
+    return strds
