@@ -21,7 +21,7 @@ assert args.start_or_continue
 
 # set up the neural network
 print("Loading network...")
-cfgfile = os.path.abspath("cfg/yolov3.cfg") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/cfg/yolov3.cfg"
+cfgfile = os.path.abspath("cfg/yolov3_mod.cfg") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/cfg/yolov3_mod.cfg"
 model = Darknet(cfgfile)
 if args.start_or_continue == "start":
     weightsfile = os.path.abspath("yolov3.weights") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/yolov3.weights"
