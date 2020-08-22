@@ -62,8 +62,8 @@ elif args.start_or_continue == "continue":
 if CUDA:
     model.to(torch.device("cuda"))
     
-lambda_coord = 0.01
-lambda_noobj = 0.1
+lambda_coord = 0.005
+lambda_noobj = 1
 batch_size = 3
 epochs = args.epochs
 num_train = 21
@@ -117,8 +117,8 @@ for epoch in range(epochs):
             targ = targ.to(torch.device("cuda"))
         
         sq_err_loss = lambda_coord * mse_loss(torch.clamp(mask1*outp, min=1e-6)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
-        cross_entr_loss = cross_entropy(mask1*outp, targ)
-        zero_tensor = torch.zeros(outp.shape)
+        cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6), targ)
+        zero_tensor = torch.zeros(outp.shape).float()
         if CUDA:
             zero_tensor = zero_tensor.to(torch.device("cuda"))
         cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6), zero_tensor)
@@ -153,8 +153,8 @@ for epoch in range(epochs):
         mask2 = mask2.to(torch.device("cuda"))
         targ = targ.to(torch.device("cuda"))
     sq_err_loss = lambda_coord * mse_loss(torch.clamp(mask1*outp, min=1e-6)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
-    cross_entr_loss = cross_entropy(mask1*outp, targ)
-    zero_tensor = torch.zeros(outp.shape)
+    cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6), targ)
+    zero_tensor = torch.zeros(outp.shape).float()
     if CUDA:
         zero_tensor = zero_tensor.to(torch.device("cuda"))
     cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6), zero_tensor)
