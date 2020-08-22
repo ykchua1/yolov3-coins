@@ -354,7 +354,7 @@ def create_training_mask_1(pred, fp_list, iou_thresh=0.5): # mask 1 allows detec
     
     assert len(fp_list) == int(pred.shape[0])
     
-    training_mask = 1e-4*torch.ones(pred.shape).float()
+    training_mask = torch.zeros(pred.shape).float()
     
     for i, fp in enumerate(fp_list):
         objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh)
@@ -377,7 +377,7 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5): # mask 2 enables no o
     
     assert len(fp_list) == int(pred.shape[0])
      
-    training_mask = 1e-4*torch.ones(pred.shape).float()
+    training_mask = torch.zeros(pred.shape).float()
     training_mask[:,:,4] = 1
     
     for i, fp in enumerate(fp_list):
@@ -388,7 +388,7 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5): # mask 2 enables no o
             
             for j in range(num_valid_bb):
                 sec_row = value[1][j][0] # secondary rows consist of all valid bbs (best bb or iou above thresh)
-                training_mask[i,sec_row,4] = 1e-4 # remove no-object loss for boxes above iou threshold
+                training_mask[i,sec_row,4] = 0. # remove no-object loss for boxes above iou threshold
     
     return training_mask
 
