@@ -116,12 +116,12 @@ for epoch in range(epochs):
             mask2 = mask2.to(torch.device("cuda"))
             targ = targ.to(torch.device("cuda"))
         
-        sq_err_loss = lambda_coord * mse_loss(torch.clamp(mask1*outp, min=1e-6)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
-        cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6), targ)
+        sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
+        cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6, max=0.9999), targ)
         zero_tensor = torch.zeros(outp.shape).float()
         if CUDA:
             zero_tensor = zero_tensor.to(torch.device("cuda"))
-        cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6), zero_tensor)
+        cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6, max=0.9999), zero_tensor)
         
         loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
         loss.backward()
@@ -152,12 +152,12 @@ for epoch in range(epochs):
         mask1 = mask1.to(torch.device("cuda"))
         mask2 = mask2.to(torch.device("cuda"))
         targ = targ.to(torch.device("cuda"))
-    sq_err_loss = lambda_coord * mse_loss(torch.clamp(mask1*outp, min=1e-6)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
-    cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6), targ)
+    sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
+    cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6, max=0.9999), targ)
     zero_tensor = torch.zeros(outp.shape).float()
     if CUDA:
         zero_tensor = zero_tensor.to(torch.device("cuda"))
-    cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6), zero_tensor)
+    cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6, max=0.9999), zero_tensor)
     val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
     print(val_loss)############################################################################333
     # write to loss log
