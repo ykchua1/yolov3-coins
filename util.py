@@ -415,7 +415,7 @@ def create_groundtruth(pred, fp_list):
         
     return groundtruth
 
-def cross_entropy(inp, tar):
-    output = -(tar[:,:,4:]*torch.log(inp[:,:,4:]) + (1 - tar[:,:,4:])*torch.log(1 - inp[:,:,4:]))
+def cross_entropy(outp, tar):
+    output = -(tar[:,:,4:]*torch.log(outp[:,:,4:]) + (1 - tar[:,:,4:])*torch.log(1 - outp[:,:,4:]))
     output = torch.sum(output)
     return output
