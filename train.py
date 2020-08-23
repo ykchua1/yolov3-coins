@@ -11,6 +11,14 @@ import argparse
 import torch.optim as optim
 from functools import reduce
 
+yolo_type = "regular"
+if yolo_type == "regular":
+    yolo_cfg_path = "cfg/yolov3_mod.cfg"
+    yolo_weights_path = "yolov3.weights"
+elif yolo_type == "tiny":
+    yolo_cfg_path = "cfg/yolov3-tiny_mod.cfg"
+    yolo_weights_path = "yolov3-tiny.weights"
+
 CUDA = torch.cuda.is_available()
 
 parser = argparse.ArgumentParser()
@@ -21,10 +29,10 @@ assert args.start_or_continue
 
 # set up the neural network
 print("Loading network...")
-cfgfile = os.path.abspath("cfg/yolov3_mod.cfg") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/cfg/yolov3_mod.cfg"
+cfgfile = os.path.abspath(yolo_cfg_path) # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/cfg/yolov3_mod.cfg"
 model = Darknet(cfgfile)
 if args.start_or_continue == "start":
-    weightsfile = os.path.abspath("yolov3.weights") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/yolov3.weights"
+    weightsfile = os.path.abspath(yolo_weights_path) # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/yolov3.weights"
     model.load_weights(weightsfile)
 print("Network successfully loaded")
 
@@ -110,10 +118,10 @@ for epoch in range(epochs):
         
         outp = model(batch, CUDA, training=True)
          
-        mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
-        mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
+        mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
+        mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
 
-        targ = create_groundtruth(outp, fp_list)
+        targ = create_groundtruth(outp, fp_list, yolo_type=yolo_type)
         if CUDA:
             mask1 = mask1.to(torch.device("cuda"))
             mask2 = mask2.to(torch.device("cuda"))
@@ -148,9 +156,9 @@ for epoch in range(epochs):
     fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
     #model.eval()
     outp = model(val_im_batches[0], CUDA, training=True)
-    mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5)
-    mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5)
-    targ = create_groundtruth(outp, fp_list)
+    mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
+    mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
+    targ = create_groundtruth(outp, fp_list, yolo_type=yolo_type)
     if CUDA:
         mask1 = mask1.to(torch.device("cuda"))
         mask2 = mask2.to(torch.device("cuda"))

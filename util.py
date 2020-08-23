@@ -261,7 +261,7 @@ def transform_b2t(pred, anchors=[(39,38),  (45,44),  (49,49),  (70,36),  (54,53)
     
     return pred
 
-def create_objbb_dict(fp, iou_thresh=0.5):
+def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
     """
     returns objbb_dict
     
@@ -308,7 +308,7 @@ def create_objbb_dict(fp, iou_thresh=0.5):
         x_coord416 = (x // (1/filter_dim)) * float(stride)
         y_coord416 = (y // (1/filter_dim)) * float(stride)
         
-        anchors = [(39,38),  (45,44),  (49,49),  (70,36),  (54,53),  (58,58),  (64,62),  (69,68),  (76,75)]
+        anchors = get_anchors(yolo_type=yolo_type)
         
         b1x1, b1x2 = ((x - w/2)*416.0, (x + w/2)*416.0)
         b1y1, b1y2 = ((y - h/2)*416.0, (y + h/2)*416.0)
@@ -342,7 +342,7 @@ def create_objbb_dict(fp, iou_thresh=0.5):
         
     return objbb_dict
 
-def create_training_mask_1(pred, fp_list, iou_thresh=0.5): # mask 1 allows detection rows only
+def create_training_mask_1(pred, fp_list, iou_thresh=0.5, yolo_type='regular'): # mask 1 allows detection rows only
     """
     takes in batches * 10647 * (5 + num_classes) tensor as input
     
@@ -357,7 +357,7 @@ def create_training_mask_1(pred, fp_list, iou_thresh=0.5): # mask 1 allows detec
     training_mask = torch.zeros(pred.shape).float()
     
     for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh)
+        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh, yolo_type=yolo_type)
     
         for key, value in objbb_dict.items():
             det_row = value[1][0][0] # row of assigned bounding box
@@ -365,7 +365,7 @@ def create_training_mask_1(pred, fp_list, iou_thresh=0.5): # mask 1 allows detec
         
     return training_mask
 
-def create_training_mask_2(pred, fp_list, iou_thresh=0.5): # mask 2 enables no object loss
+def create_training_mask_2(pred, fp_list, iou_thresh=0.5, yolo_type="regular"): # mask 2 enables no object loss
     """
     takes in batches * 10647 * (5 + num_classes) tensor as input
     
@@ -381,7 +381,7 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5): # mask 2 enables no o
     training_mask[:,:,4] = 1
     
     for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh)
+        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh, yolo_type=yolo_type)
         
         for key, value in objbb_dict.items():
             num_valid_bb = len(value[1]) # the number of valid bounding boxes for the object
@@ -392,7 +392,7 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5): # mask 2 enables no o
     
     return training_mask
 
-def create_groundtruth(pred, fp_list):
+def create_groundtruth(pred, fp_list, yolo_type="regular"):
     """
     returns groundtruth tensor (batches * 10647 * (5 + num_classes))
     
@@ -404,7 +404,7 @@ def create_groundtruth(pred, fp_list):
     groundtruth = torch.zeros(pred.shape).float()
     
     for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp)
+        objbb_dict = create_objbb_dict(fp, yolo_type=yolo_type)
         
         for key, value in objbb_dict.items():
             det_row = value[1][0][0]
@@ -419,3 +419,9 @@ def cross_entropy(outp, tar):
     output = -(tar[:,:,4:]*torch.log(outp[:,:,4:]) + (1 - tar[:,:,4:])*torch.log(1 - outp[:,:,4:]))
     output = torch.sum(output)
     return output
+
+def get_anchors(yolo_type="regular"):
+    if yolo_type == "regular":
+        return [(39,38),  (45,44),  (49,49),  (70,36),  (54,53),  (58,58),  (64,62),  (69,68),  (76,75)]
+    elif yolo_type == "tiny":
+        return [(41,39), (47,46), (53,52), (58,57), (65,63), (74,73)]

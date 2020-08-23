@@ -1,6 +1,12 @@
 import os
 import numpy as np
 from sklearn.cluster import KMeans
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("n_clusters", type=int)
+args = parser.parse_args()
+n_clusters = args.n_clusters
 
 wh_tuple_list = []
 
@@ -19,7 +25,7 @@ for file in os.listdir("./data/scattered_coins/train"):
             wh_tuple_list.append((line.split()[3], line.split()[4]))
             
 X = np.array(wh_tuple_list)
-kmeans = KMeans(n_clusters=9, random_state=0).fit(X)
+kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(X)
 
 # sort by area
 clust_centers = kmeans.cluster_centers_
@@ -30,6 +36,6 @@ area_ranked_ind = [x[0] for x in areas]
 clust_centers = clust_centers[area_ranked_ind]
 
 clust_centers *= 416
-clust_centers = np.rint(clust_centers)
+clust_centers = np.rint(clust_centers) # rounding to nearest int
 
 print(clust_centers)
