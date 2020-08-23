@@ -4,12 +4,12 @@ from sklearn.cluster import KMeans
 
 wh_tuple_list = []
 
-for file in os.listdir("./data/scattered_coins/"): 
+for file in os.listdir("./data/scattered_coins/train"): 
       
     if file[-4:] != ".txt" or file[:3] != "IMG": 
         continue 
     else: 
-        abspath = os.path.abspath("./data/scattered_coins/") 
+        abspath = os.path.abspath("./data/scattered_coins/train") 
         abspath = os.path.join(abspath, file) 
          
         with open(abspath) as f: 

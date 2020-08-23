@@ -66,7 +66,6 @@ lambda_coord = 0.0001
 lambda_noobj = 1
 batch_size = 3
 epochs = args.epochs
-num_train = 21
 lr = 0.001
 
 optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -74,10 +73,12 @@ mse_loss = nn.MSELoss(reduction='sum')
 if CUDA:
     mse_loss.to(torch.device("cuda"))
 
-imlist = os.listdir("./data/scattered_coins/")
+imlist = os.listdir("./data/scattered_coins/train")
 imlist = list(filter(lambda x: x.split('.')[-1] == "jpg", imlist))
-imlist = [os.path.join("./data/scattered_coins/", x) for x in imlist]
-imlist, val_im_list = (imlist[:num_train], imlist[num_train:])
+imlist = [os.path.join("./data/scattered_coins/train", x) for x in imlist]
+val_im_list = os.listdir("./data/scattered_coins/val")
+val_im_list = list(filter(lambda x: x.split('.')[-1] == "jpg", val_im_list))
+val_im_list = [os.path.join("./data/scattered_coins/val", x) for x in val_im_list]
 print(val_im_list)
 val_im_list = val_im_list[:3]
 
@@ -131,7 +132,7 @@ for epoch in range(epochs):
         
         loss_sum = [loss_sum[a] + b for a, b in enumerate([sq_err_loss, cross_entr_loss, cross_entr_loss_noobj])]
         
-    loss_mean = [x / num_train for x in loss_sum]
+    loss_mean = [x / len(imlist) for x in loss_sum]
     total_loss_mean = [reduce((lambda x, y: x + y), loss_mean)]
     print("loss means: ", loss_mean)
     print("total loss mean: ", total_loss_mean)

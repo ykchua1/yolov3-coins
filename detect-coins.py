@@ -54,7 +54,7 @@ CUDA = torch.cuda.is_available()
 
 
 num_classes = 4
-classes = load_classes("data/scattered_coins/classes.txt")
+classes = load_classes("data/scattered_coins/train/classes.txt")
 
 
 
