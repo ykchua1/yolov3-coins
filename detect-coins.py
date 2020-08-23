@@ -202,7 +202,7 @@ def write(x, results): #
     img = results[int(x[0])]
     cls = int(x[-1])
     # color = random.choice(colors)
-    color = colors[cls]
+    color = colors[cls*3]
     label = "{0}".format(classes[cls])
     cv2.rectangle(img, c1, c2,color, 1)
     t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]

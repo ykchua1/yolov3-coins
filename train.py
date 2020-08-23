@@ -62,7 +62,7 @@ elif args.start_or_continue == "continue":
 if CUDA:
     model.to(torch.device("cuda"))
     
-lambda_coord = 0.005
+lambda_coord = 0.0001
 lambda_noobj = 1
 batch_size = 3
 epochs = args.epochs
@@ -77,7 +77,9 @@ if CUDA:
 imlist = os.listdir("./data/scattered_coins/")
 imlist = list(filter(lambda x: x.split('.')[-1] == "jpg", imlist))
 imlist = [os.path.join("./data/scattered_coins/", x) for x in imlist]
-imlist, val_im_list = (imlist[:num_train], imlist[num_train:num_train+3])
+imlist, val_im_list = (imlist[:num_train], imlist[num_train:])
+print(val_im_list)
+val_im_list = val_im_list[:3]
 
 for epoch in range(epochs):
     print("Starting epoch: {}".format(prev_epoch + epoch))
