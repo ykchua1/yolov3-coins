@@ -425,3 +425,9 @@ def get_anchors(yolo_type="regular"):
         return [(39,38),  (45,44),  (49,49),  (70,36),  (54,53),  (58,58),  (64,62),  (69,68),  (76,75)]
     elif yolo_type == "tiny":
         return [(41,39), (47,46), (53,52), (58,57), (65,63), (74,73)]
+    
+def get_det_layers(yolo_type="regular"):
+    if yolo_type == "regular":
+        return [82, 94, 106]
+    elif yolo_type == "tiny":
+        return [16, 23]
