@@ -302,7 +302,9 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
         
         bb = row % 3 
         
-        anchor_index = {32: 6, 16: 3, 8: 0}[stride] + bb
+        if yolo_type == "regular": strd2anchind = {32: 6, 16: 3, 8: 0}
+        elif yolo_type == "tiny": strd2anchind = {32: 3, 16: 0}
+        anchor_index = strd2anchind[stride] + bb
         anchor_index = int(anchor_index)
         filter_dim = {32: 13, 16: 26, 8: 52}[stride]
         x_coord416 = (x // (1/filter_dim)) * float(stride)
@@ -332,7 +334,8 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
         x, y, w, h = (float(sp[1]), float(sp[2]), float(sp[3]), float(sp[4]))
         bounding_box_rows = [find_row(x, y, stride=32) + bb for bb in range(3)]
         bounding_box_rows += [find_row(x, y, stride=16) + bb for bb in range(3)]
-        bounding_box_rows += [find_row(x, y, stride=8) + bb for bb in range(3)] # bounding_box_rows is len 9
+        if yolo_type == "regular":
+            bounding_box_rows += [find_row(x, y, stride=8) + bb for bb in range(3)] # bounding_box_rows is len 9
         objbb_dict[i] = [int(sp[0]), [(int(row), find_iou(x, y, w, h, row)) for row in bounding_box_rows]]
         
         objbb_dict[i][1].sort(key = lambda x: x[1], reverse=True) # sort the bbs by iou (reversed) 
