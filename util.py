@@ -295,12 +295,12 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
     def find_iou(x, y, w, h, row): # bb is the bounding box number (0, 1 or 2)
         if row < 3*13**2:
             stride = 32
-        elif row < 3*26**2:
+        elif row < 3*13**2 + 3*26**2:
             stride = 16
         else:
             stride = 8
         
-        bb = row % 3
+        bb = row % 3 
         
         anchor_index = {32: 6, 16: 3, 8: 0}[stride] + bb
         anchor_index = int(anchor_index)
