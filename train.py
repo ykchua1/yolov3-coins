@@ -11,7 +11,7 @@ import argparse
 import torch.optim as optim
 from functools import reduce
 
-yolo_type = "regular"
+yolo_type = "tiny"
 if yolo_type == "regular":
     yolo_cfg_path = "cfg/yolov3_mod.cfg"
     yolo_weights_path = "yolov3.weights"
@@ -152,6 +152,7 @@ for epoch in range(epochs):
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "loss": loss}, "checkpoint.pkl")
+        print("MODEL SAVED")
     # get the validation losses (code copied training loss section)
     fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
     #model.eval()
