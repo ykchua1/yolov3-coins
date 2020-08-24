@@ -80,7 +80,7 @@ def create_modules(blocks):
             size = int(x["size"])
             stride = int(x["stride"])
             if stride == 1:
-                zeropad2d = nn.ZeroPad2d((1,0,1,0))
+                zeropad2d = nn.ZeroPad2d((0,1,0,1))
             else:
                 zeropad2d = nn.ZeroPad2d((0,0,0,0))
             module.add_module("zeropad2d_{}".format(index), zeropad2d)
