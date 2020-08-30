@@ -75,6 +75,18 @@ def create_modules(blocks):
         #create a new module for the block
         #append to module_list
         
+        # If it is a maxpool layer
+        if (x["type"] == "maxpool"):
+            size = int(x["size"])
+            stride = int(x["stride"])
+            if stride == 1:
+                zeropad2d = nn.ZeroPad2d((0,1,0,1))
+            else:
+                zeropad2d = nn.ZeroPad2d((0,0,0,0))
+            module.add_module("zeropad2d_{}".format(index), zeropad2d)
+            maxpool = nn.MaxPool2d(size, stride=stride)
+            module.add_module("maxpool_{}".format(index), maxpool)
+        
         #If it's a convolutional layer
         if (x["type"] == "convolutional"):
             #Get the info about the layer
@@ -179,7 +191,7 @@ class Darknet(nn.Module):
             
             module_type = (module["type"])
             
-            if module_type == "convolutional" or module_type == "upsample":
+            if module_type == "convolutional" or module_type == "upsample" or module_type == "maxpool":
                 x = self.module_list[i](x)
     
             elif module_type == "route":

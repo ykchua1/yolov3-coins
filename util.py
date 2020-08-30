@@ -295,14 +295,16 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
     def find_iou(x, y, w, h, row): # bb is the bounding box number (0, 1 or 2)
         if row < 3*13**2:
             stride = 32
-        elif row < 3*26**2:
+        elif row < 3*13**2 + 3*26**2:
             stride = 16
         else:
             stride = 8
         
-        bb = row % 3
+        bb = row % 3 
         
-        anchor_index = {32: 6, 16: 3, 8: 0}[stride] + bb
+        if yolo_type == "regular": strd2anchind = {32: 6, 16: 3, 8: 0}
+        elif yolo_type == "tiny": strd2anchind = {32: 3, 16: 0}
+        anchor_index = strd2anchind[stride] + bb
         anchor_index = int(anchor_index)
         filter_dim = {32: 13, 16: 26, 8: 52}[stride]
         x_coord416 = (x // (1/filter_dim)) * float(stride)
@@ -332,7 +334,8 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
         x, y, w, h = (float(sp[1]), float(sp[2]), float(sp[3]), float(sp[4]))
         bounding_box_rows = [find_row(x, y, stride=32) + bb for bb in range(3)]
         bounding_box_rows += [find_row(x, y, stride=16) + bb for bb in range(3)]
-        bounding_box_rows += [find_row(x, y, stride=8) + bb for bb in range(3)] # bounding_box_rows is len 9
+        if yolo_type == "regular":
+            bounding_box_rows += [find_row(x, y, stride=8) + bb for bb in range(3)] # bounding_box_rows is len 9
         objbb_dict[i] = [int(sp[0]), [(int(row), find_iou(x, y, w, h, row)) for row in bounding_box_rows]]
         
         objbb_dict[i][1].sort(key = lambda x: x[1], reverse=True) # sort the bbs by iou (reversed) 
@@ -425,3 +428,9 @@ def get_anchors(yolo_type="regular"):
         return [(39,38),  (45,44),  (49,49),  (70,36),  (54,53),  (58,58),  (64,62),  (69,68),  (76,75)]
     elif yolo_type == "tiny":
         return [(41,39), (47,46), (53,52), (58,57), (65,63), (74,73)]
+    
+def get_det_layers(yolo_type="regular"):
+    if yolo_type == "regular":
+        return [82, 94, 106]
+    elif yolo_type == "tiny":
+        return [16, 23]

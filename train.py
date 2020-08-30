@@ -11,7 +11,7 @@ import argparse
 import torch.optim as optim
 from functools import reduce
 
-yolo_type = "regular"
+yolo_type = "tiny"
 if yolo_type == "regular":
     yolo_cfg_path = "cfg/yolov3_mod.cfg"
     yolo_weights_path = "yolov3.weights"
@@ -37,7 +37,7 @@ if args.start_or_continue == "start":
 print("Network successfully loaded")
 
 # swap out the layers before YOLO and the classes in the YOLO layers
-det_layers = [82, 94, 106]
+det_layers = get_det_layers(yolo_type=yolo_type)
 for i in det_layers:
     in_channels = model.module_list[i-1][0].in_channels
     model.module_list[i-1] = nn.Sequential(nn.Conv2d(in_channels, 27, 1)) 
@@ -152,6 +152,7 @@ for epoch in range(epochs):
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "loss": loss}, "checkpoint.pkl")
+        print("MODEL SAVED")
     # get the validation losses (code copied training loss section)
     fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
     #model.eval()

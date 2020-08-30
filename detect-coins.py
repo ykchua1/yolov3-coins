@@ -40,6 +40,7 @@ def arg_parse():
     parser.add_argument("--reso", dest = 'reso', help = 
                         "Input resolution of the network. Increase to increase accuracy. Decrease to increase speed",
                         default = "416", type = str)
+    parser.add_argument("--yolo_type", dest = "yolo_type", default = "regular")
     
     return parser.parse_args()
     
@@ -56,16 +57,20 @@ CUDA = torch.cuda.is_available()
 num_classes = 4
 classes = load_classes("data/scattered_coins/train/classes.txt")
 
-
+yolo_type = args.yolo_type
+if yolo_type == "regular":
+    yolo_cfg_path = "cfg/yolov3_mod.cfg"
+elif yolo_type == "tiny":
+    yolo_cfg_path = "cfg/yolov3-tiny_mod.cfg"
 
 # set up the neural network
 print("Loading network...")
-cfgfile = os.path.abspath("cfg/yolov3_mod.cfg") # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/cfg/yolov3_mod.cfg"
+cfgfile = os.path.abspath(yolo_cfg_path) # "/home/jovyan/work/YOLO_v3_tutorial_from_scratch/cfg/yolov3_mod.cfg"
 model = Darknet(cfgfile)
 print("Network successfully loaded")
 
 # swap out the layers before YOLO and the classes in the YOLO layers
-det_layers = [82, 94, 106]
+det_layers = get_det_layers(yolo_type=yolo_type)
 for i in det_layers:
     in_channels = model.module_list[i-1][0].in_channels
     model.module_list[i-1] = nn.Sequential(nn.Conv2d(in_channels, 27, 1)) 
