@@ -24,8 +24,16 @@ CUDA = torch.cuda.is_available()
 parser = argparse.ArgumentParser()
 parser.add_argument("start_or_continue", help="indicate to train from start or to continue")
 parser.add_argument("epochs", help="how many epochs to train", type=int)
+parser.add_argument("--lr", dest='lr', type=float)
 args = parser.parse_args()
 assert args.start_or_continue
+
+lambda_coord = 0.001
+lambda_noobj = 1
+batch_size = 21
+epochs = args.epochs
+lr = 0.001
+wd = 1
 
 # set up the neural network
 print("Loading network...")
@@ -53,30 +61,26 @@ elif args.start_or_continue == "continue":
     # load state_dict
     checkpoint = torch.load("checkpoint.pkl")
     model.load_state_dict(checkpoint["model_state_dict"])
+    if CUDA:
+        model.to(torch.device("cuda"))
     prev_epoch = checkpoint["epoch"] + 1
     loss = checkpoint["loss"]
+    if args.lr:
+        print("ON SGD")
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, nesterov=True)
+    else:
+        print("ON ADAM")
+        optimizer = optim.Adam(model.parameters(), weight_decay=wd)
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     
-    optimizer = optim.Adam(model.parameters())
-    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-    
-
-
     
     
     
     
 
 # training loop
-if CUDA:
-    model.to(torch.device("cuda"))
-    
-lambda_coord = 0.001
-lambda_noobj = 1
-batch_size = 42
-epochs = args.epochs
-lr = 0.001
-
-optimizer = optim.Adam(model.parameters(), lr=lr)
+if args.start_or_continue == "start":
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
 mse_loss = nn.MSELoss(reduction='sum')
 if CUDA:
     mse_loss.to(torch.device("cuda"))
@@ -171,7 +175,7 @@ for epoch in range(epochs):
         zero_tensor = zero_tensor.to(torch.device("cuda"))
     cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6, max=0.9999), zero_tensor)
     val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
-    print(val_loss)############################################################################333
+    print(val_loss, cross_entr_loss)############################################################################333
     # write to loss log
     with open("loss.txt", "a") as f:
         line = ", ".join([str(float(a)) for a in loss_mean + total_loss_mean])
