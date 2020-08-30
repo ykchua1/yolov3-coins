@@ -48,7 +48,7 @@ if args.start_or_continue == "start":
     # reset the loss log
     with open("loss.txt", "w") as f:
         pass
-    prev_epoch = 0
+    prev_epoch = 1
 elif args.start_or_continue == "continue":
     # load state_dict
     checkpoint = torch.load("checkpoint.pkl")
@@ -70,9 +70,9 @@ elif args.start_or_continue == "continue":
 if CUDA:
     model.to(torch.device("cuda"))
     
-lambda_coord = 0.0001
+lambda_coord = 0.001
 lambda_noobj = 1
-batch_size = 3
+batch_size = 42
 epochs = args.epochs
 lr = 0.001
 
