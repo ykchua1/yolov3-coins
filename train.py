@@ -81,47 +81,29 @@ mse_loss = nn.MSELoss(reduction='sum')
 if CUDA:
     mse_loss.to(torch.device("cuda"))
 
-imlist = os.listdir("./data/scattered_coins/train")
-imlist = list(filter(lambda x: x.split('.')[-1] == "jpg", imlist))
-imlist = [os.path.join("./data/scattered_coins/train", x) for x in imlist]
-val_im_list = os.listdir("./data/scattered_coins/val")
-val_im_list = list(filter(lambda x: x.split('.')[-1] == "jpg", val_im_list))
-val_im_list = [os.path.join("./data/scattered_coins/val", x) for x in val_im_list]
-print(val_im_list)
-val_im_list = val_im_list[:3]
+dataset = ImageAnnotationDataset("./data/scattered_coins/train", transform=transforms.Compose([PrepImage()]))
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+val_dataset = ImageAnnotationDataset("./data/scattered_coins/val", transform=transforms.Compose([PrepImage()]), range=3)
+val_dataloader = DataLoader(val_dataset, batch_size=3, shuffle=False, num_workers=0)
 
 for epoch in range(epochs):
     print("Starting epoch: {}".format(prev_epoch + epoch))
     
-    shuffle(imlist)
-    if (len(imlist) % batch_size): leftover = 1
-    else: leftover = 0
-    loaded_ims = [cv2.imread(x) for x in imlist]
-    num_batches = len(imlist) // batch_size + leftover
-    im_batches = list(map(prep_image, loaded_ims, [416 for x in range(len(loaded_ims))]))
-    im_batches = [torch.cat((im_batches[i*batch_size : min((i+1)*batch_size, len(im_batches))])) for i in range(num_batches)]
-    
-    val_loaded_ims = [cv2.imread(x) for x in val_im_list]
-    val_im_batches = list(map(prep_image, val_loaded_ims, [416 for x in range(len(val_loaded_ims))]))
-    val_im_batches = [torch.cat(val_im_batches)]
-    if CUDA:
-        im_batches = [im_batch.to(torch.device("cuda")) for im_batch in im_batches]
-        val_im_batches = [val_im_batches[0].to(torch.device("cuda"))]
-    
-    for i, batch in enumerate(im_batches):
+    for i, batch in enumerate(dataloader):
         loss_sum = [torch.tensor(0.0) for i in range(3)]
-        
-        fp_list = [imlist[i*batch_size + x][:-4]+".txt" for x in range(batch.shape[0])]
+        if CUDA:
+            batch["image"].to(torch.device("cuda"))
+        text_list = batch["text"]
         
         optimizer.zero_grad()
         model.train()
         
-        outp = model(batch, CUDA, training=True)
+        outp = model(batch["image"], CUDA, training=True)
          
-        mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
-        mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
+        mask1 = create_training_mask_1(outp, text_list, iou_thresh=0.5, yolo_type=yolo_type)
+        mask2 = create_training_mask_2(outp, text_list, iou_thresh=0.5, yolo_type=yolo_type)
 
-        targ = create_groundtruth(outp, fp_list, yolo_type=yolo_type)
+        targ = create_groundtruth(outp, text_list, yolo_type=yolo_type)
         if CUDA:
             mask1 = mask1.to(torch.device("cuda"))
             mask2 = mask2.to(torch.device("cuda"))
@@ -154,23 +136,26 @@ for epoch in range(epochs):
             "loss": loss}, "checkpoint.pkl")
         print("MODEL SAVED")
     # get the validation losses (code copied training loss section)
-    fp_list = [val_im_list[x][:-4]+".txt" for x in range(len(val_im_list))]
-    #model.eval()
-    outp = model(val_im_batches[0], CUDA, training=True)
-    mask1 = create_training_mask_1(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
-    mask2 = create_training_mask_2(outp, fp_list, iou_thresh=0.5, yolo_type=yolo_type)
-    targ = create_groundtruth(outp, fp_list, yolo_type=yolo_type)
-    if CUDA:
-        mask1 = mask1.to(torch.device("cuda"))
-        mask2 = mask2.to(torch.device("cuda"))
-        targ = targ.to(torch.device("cuda"))
-    sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
-    cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6, max=0.9999), targ)
-    zero_tensor = torch.zeros(outp.shape).float()
-    if CUDA:
-        zero_tensor = zero_tensor.to(torch.device("cuda"))
-    cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6, max=0.9999), zero_tensor)
-    val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
+    for i, batch in enumerate(val_dataloader):
+        text_list = batch["text"]
+        if CUDA:
+            batch["image"].to(torch.device("cuda"))
+        #model.eval()
+        outp = model(batch["image"], CUDA, training=True)
+        mask1 = create_training_mask_1(outp, text_list, iou_thresh=0.5, yolo_type=yolo_type)
+        mask2 = create_training_mask_2(outp, text_list, iou_thresh=0.5, yolo_type=yolo_type)
+        targ = create_groundtruth(outp, text_list, yolo_type=yolo_type)
+        if CUDA:
+            mask1 = mask1.to(torch.device("cuda"))
+            mask2 = mask2.to(torch.device("cuda"))
+            targ = targ.to(torch.device("cuda"))
+        sq_err_loss = lambda_coord * mse_loss((mask1*outp)[:,:,:4], 416*targ[:,:,:4]) # multiplied by 416 to scale up w/ model output
+        cross_entr_loss = cross_entropy(torch.clamp(mask1*outp, min=1e-6, max=0.9999), targ)
+        zero_tensor = torch.zeros(outp.shape).float()
+        if CUDA:
+            zero_tensor = zero_tensor.to(torch.device("cuda"))
+        cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6, max=0.9999), zero_tensor)
+        val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
     print(val_loss)############################################################################333
     # write to loss log
     with open("loss.txt", "a") as f:
