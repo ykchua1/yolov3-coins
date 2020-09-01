@@ -442,23 +442,25 @@ import os
 class PrepImage():
     def __call__(self, sample):
         image = prep_image(sample["image"], inp_dim=416)
+        image = image.squeeze(0)
         return {"image": image, "text": sample["text"]}
     
 class ImageAnnotationDataset(Dataset):
-    def __init__(self, root_dir, transform=transforms.Compose([PrepImage()]), range=False):
+    def __init__(self, root_dir, transform=transforms.Compose([PrepImage()]), rng=False):
         self.root_dir = root_dir
         self.transform = transform
+        self.rng = rng
         
     def __len__(self):
-        if range:
-            lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)[:range]))
+        if self.rng:
+            lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))[:self.rng]
         else:
             lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
         return len(lst)
     
     def __getitem__(self, idx):
-        if range:
-            im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)[:range]))
+        if self.rng:
+            im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))[:self.rng]
         else:
             im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
         im_names = [x[:-4] for x in im_names]

@@ -80,15 +80,16 @@ elif args.start_or_continue == "continue":
 
 # training loop
 if args.start_or_continue == "start":
+    print("ON ADAM")
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
     model.to(torch.device("cuda"))
 mse_loss = nn.MSELoss(reduction='sum')
 if CUDA:
     mse_loss.to(torch.device("cuda"))
 
-dataset = ImageAnnotationDataset("./data/scattered_coins/train", transform=transforms.Compose([PrepImage()]))
+dataset = ImageAnnotationDataset("./data/scattered_coins/train/", transform=transforms.Compose([PrepImage()]))
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-val_dataset = ImageAnnotationDataset("./data/scattered_coins/val", transform=transforms.Compose([PrepImage()]), range=3)
+val_dataset = ImageAnnotationDataset("./data/scattered_coins/val/", transform=transforms.Compose([PrepImage()]), rng=3)
 val_dataloader = DataLoader(val_dataset, batch_size=3, shuffle=False, num_workers=0)
 
 for epoch in range(epochs):
@@ -97,7 +98,7 @@ for epoch in range(epochs):
     for i, batch in enumerate(dataloader):
         loss_sum = [torch.tensor(0.0) for i in range(3)]
         if CUDA:
-            batch["image"].to(torch.device("cuda"))
+            batch["image"] = batch["image"].to(torch.device("cuda"))
         text_list = batch["text"]
         
         optimizer.zero_grad()
@@ -127,7 +128,7 @@ for epoch in range(epochs):
         
         loss_sum = [loss_sum[a] + b for a, b in enumerate([sq_err_loss, cross_entr_loss, cross_entr_loss_noobj])]
         
-    loss_mean = [x / len(imlist) for x in loss_sum]
+    loss_mean = [x / len(dataset) for x in loss_sum]
     total_loss_mean = [reduce((lambda x, y: x + y), loss_mean)]
     print("loss means: ", loss_mean)
     print("total loss mean: ", total_loss_mean)
@@ -144,7 +145,7 @@ for epoch in range(epochs):
     for i, batch in enumerate(val_dataloader):
         text_list = batch["text"]
         if CUDA:
-            batch["image"].to(torch.device("cuda"))
+            batch["image"] = batch["image"].to(torch.device("cuda"))
         #model.eval()
         outp = model(batch["image"], CUDA, training=True)
         mask1 = create_training_mask_1(outp, text_list, iou_thresh=0.5, yolo_type=yolo_type)
@@ -161,7 +162,7 @@ for epoch in range(epochs):
             zero_tensor = zero_tensor.to(torch.device("cuda"))
         cross_entr_loss_noobj = lambda_noobj * cross_entropy(torch.clamp(mask2*outp, min=1e-6, max=0.9999), zero_tensor)
         val_loss = sq_err_loss + cross_entr_loss + cross_entr_loss_noobj
-    print(val_loss, cross_entr_loss)############################################################################333
+        print(val_loss, cross_entr_loss)############################################################################333
     # write to loss log
     with open("loss.txt", "a") as f:
         line = ", ".join([str(float(a)) for a in loss_mean + total_loss_mean])
