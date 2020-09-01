@@ -445,16 +445,22 @@ class PrepImage():
         return {"image": image, "text": sample["text"]}
     
 class ImageAnnotationDataset(Dataset):
-    def __init__(self, root_dir, transform=transforms.Compose([PrepImage()])):
+    def __init__(self, root_dir, transform=transforms.Compose([PrepImage()]), range=False):
         self.root_dir = root_dir
         self.transform = transform
         
     def __len__(self):
-        lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
+        if range:
+            lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)[:range]))
+        else:
+            lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
         return len(lst)
     
     def __getitem__(self, idx):
-        im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
+        if range:
+            im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)[:range]))
+        else:
+            im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
         im_names = [x[:-4] for x in im_names]
         
         image = cv2.imread(self.root_dir + im_names[idx] + ".jpg")
