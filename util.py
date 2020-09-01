@@ -261,7 +261,7 @@ def transform_b2t(pred, anchors=[(39,38),  (45,44),  (49,49),  (70,36),  (54,53)
     
     return pred
 
-def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
+def create_objbb_dict(text, iou_thresh=0.5, yolo_type="regular"):
     """
     returns objbb_dict
     
@@ -324,8 +324,7 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
         
         return iou
         
-    with open(fp) as f:
-        lines = f.readlines()
+    lines = text.split("\n")[:-1]
         
     objbb_dict = {}
     for i, line in enumerate(lines): # iterate thru objects
@@ -345,7 +344,7 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
         
     return objbb_dict
 
-def create_training_mask_1(pred, fp_list, iou_thresh=0.5, yolo_type='regular'): # mask 1 allows detection rows only
+def create_training_mask_1(pred, text_list, iou_thresh=0.5, yolo_type='regular'): # mask 1 allows detection rows only
     """
     takes in batches * 10647 * (5 + num_classes) tensor as input
     
@@ -355,12 +354,12 @@ def create_training_mask_1(pred, fp_list, iou_thresh=0.5, yolo_type='regular'): 
     
     """
     
-    assert len(fp_list) == int(pred.shape[0])
+    assert len(text_list) == int(pred.shape[0])
     
     training_mask = torch.zeros(pred.shape).float()
     
-    for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh, yolo_type=yolo_type)
+    for i, text in enumerate(text_list):
+        objbb_dict = create_objbb_dict(text, iou_thresh=iou_thresh, yolo_type=yolo_type)
     
         for key, value in objbb_dict.items():
             det_row = value[1][0][0] # row of assigned bounding box
@@ -368,7 +367,7 @@ def create_training_mask_1(pred, fp_list, iou_thresh=0.5, yolo_type='regular'): 
         
     return training_mask
 
-def create_training_mask_2(pred, fp_list, iou_thresh=0.5, yolo_type="regular"): # mask 2 enables no object loss
+def create_training_mask_2(pred, text_list, iou_thresh=0.5, yolo_type="regular"): # mask 2 enables no object loss
     """
     takes in batches * 10647 * (5 + num_classes) tensor as input
     
@@ -378,13 +377,13 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5, yolo_type="regular"): 
     
     """
     
-    assert len(fp_list) == int(pred.shape[0])
+    assert len(text_list) == int(pred.shape[0])
      
     training_mask = torch.zeros(pred.shape).float()
     training_mask[:,:,4] = 1
     
-    for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh, yolo_type=yolo_type)
+    for i, text in enumerate(text_list):
+        objbb_dict = create_objbb_dict(text, iou_thresh=iou_thresh, yolo_type=yolo_type)
         
         for key, value in objbb_dict.items():
             num_valid_bb = len(value[1]) # the number of valid bounding boxes for the object
@@ -395,19 +394,19 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5, yolo_type="regular"): 
     
     return training_mask
 
-def create_groundtruth(pred, fp_list, yolo_type="regular"):
+def create_groundtruth(pred, text_list, yolo_type="regular"):
     """
     returns groundtruth tensor (batches * 10647 * (5 + num_classes))
     
     groundtruth tensor coordinate values have range [0, 1]
     
     """
-    assert len(fp_list) == int(pred.shape[0])
+    assert len(text_list) == int(pred.shape[0])
     
     groundtruth = torch.zeros(pred.shape).float()
     
-    for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, yolo_type=yolo_type)
+    for i, text in enumerate(text_list):
+        objbb_dict = create_objbb_dict(text, yolo_type=yolo_type)
         
         for key, value in objbb_dict.items():
             det_row = value[1][0][0]
