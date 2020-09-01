@@ -194,7 +194,7 @@ def letterbox_image(img, inp_dim):
     
     canvas = np.full((inp_dim[1], inp_dim[0], 3), 128)
 
-    canvas[(h-new_h)//2:(h-new_h)//2 + new_h,(w-new_w)//2:(w-new_w)//2 + new_w,  :] = resized_image
+    canvas[(h-new_h)//23:(h-new_h)//2 + new_h,(w-new_w)//2:(w-new_w)//2 + new_w,  :] = resized_image
     
     return canvas
 
@@ -261,7 +261,7 @@ def transform_b2t(pred, anchors=[(39,38),  (45,44),  (49,49),  (70,36),  (54,53)
     
     return pred
 
-def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
+def create_objbb_dict(text, iou_thresh=0.5, yolo_type="regular"):
     """
     returns objbb_dict
     
@@ -324,8 +324,7 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
         
         return iou
         
-    with open(fp) as f:
-        lines = f.readlines()
+    lines = text.split("\n")[:-1]
         
     objbb_dict = {}
     for i, line in enumerate(lines): # iterate thru objects
@@ -345,7 +344,7 @@ def create_objbb_dict(fp, iou_thresh=0.5, yolo_type="regular"):
         
     return objbb_dict
 
-def create_training_mask_1(pred, fp_list, iou_thresh=0.5, yolo_type='regular'): # mask 1 allows detection rows only
+def create_training_mask_1(pred, text_list, iou_thresh=0.5, yolo_type='regular'): # mask 1 allows detection rows only
     """
     takes in batches * 10647 * (5 + num_classes) tensor as input
     
@@ -355,12 +354,12 @@ def create_training_mask_1(pred, fp_list, iou_thresh=0.5, yolo_type='regular'): 
     
     """
     
-    assert len(fp_list) == int(pred.shape[0])
+    assert len(text_list) == int(pred.shape[0])
     
     training_mask = torch.zeros(pred.shape).float()
     
-    for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh, yolo_type=yolo_type)
+    for i, text in enumerate(text_list):
+        objbb_dict = create_objbb_dict(text, iou_thresh=iou_thresh, yolo_type=yolo_type)
     
         for key, value in objbb_dict.items():
             det_row = value[1][0][0] # row of assigned bounding box
@@ -368,7 +367,7 @@ def create_training_mask_1(pred, fp_list, iou_thresh=0.5, yolo_type='regular'): 
         
     return training_mask
 
-def create_training_mask_2(pred, fp_list, iou_thresh=0.5, yolo_type="regular"): # mask 2 enables no object loss
+def create_training_mask_2(pred, text_list, iou_thresh=0.5, yolo_type="regular"): # mask 2 enables no object loss
     """
     takes in batches * 10647 * (5 + num_classes) tensor as input
     
@@ -378,13 +377,13 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5, yolo_type="regular"): 
     
     """
     
-    assert len(fp_list) == int(pred.shape[0])
+    assert len(text_list) == int(pred.shape[0])
      
     training_mask = torch.zeros(pred.shape).float()
     training_mask[:,:,4] = 1
     
-    for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, iou_thresh=iou_thresh, yolo_type=yolo_type)
+    for i, text in enumerate(text_list):
+        objbb_dict = create_objbb_dict(text, iou_thresh=iou_thresh, yolo_type=yolo_type)
         
         for key, value in objbb_dict.items():
             num_valid_bb = len(value[1]) # the number of valid bounding boxes for the object
@@ -395,19 +394,19 @@ def create_training_mask_2(pred, fp_list, iou_thresh=0.5, yolo_type="regular"): 
     
     return training_mask
 
-def create_groundtruth(pred, fp_list, yolo_type="regular"):
+def create_groundtruth(pred, text_list, yolo_type="regular"):
     """
     returns groundtruth tensor (batches * 10647 * (5 + num_classes))
     
     groundtruth tensor coordinate values have range [0, 1]
     
     """
-    assert len(fp_list) == int(pred.shape[0])
+    assert len(text_list) == int(pred.shape[0])
     
     groundtruth = torch.zeros(pred.shape).float()
     
-    for i, fp in enumerate(fp_list):
-        objbb_dict = create_objbb_dict(fp, yolo_type=yolo_type)
+    for i, text in enumerate(text_list):
+        objbb_dict = create_objbb_dict(text, yolo_type=yolo_type)
         
         for key, value in objbb_dict.items():
             det_row = value[1][0][0]
@@ -434,3 +433,41 @@ def get_det_layers(yolo_type="regular"):
         return [82, 94, 106]
     elif yolo_type == "tiny":
         return [16, 23]
+    
+# DATALOADER STUFF
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+import os
+
+class PrepImage():
+    def __call__(self, sample):
+        image = prep_image(sample["image"], inp_dim=416)
+        return {"image": image, "text": sample["text"]}
+    
+class ImageAnnotationDataset(Dataset):
+    def __init__(self, root_dir, transform=transforms.Compose([PrepImage()]), range=False):
+        self.root_dir = root_dir
+        self.transform = transform
+        
+    def __len__(self):
+        if range:
+            lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)[:range]))
+        else:
+            lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
+        return len(lst)
+    
+    def __getitem__(self, idx):
+        if range:
+            im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)[:range]))
+        else:
+            im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
+        im_names = [x[:-4] for x in im_names]
+        
+        image = cv2.imread(self.root_dir + im_names[idx] + ".jpg")
+        with open(self.root_dir + im_names[idx] + ".txt") as f:
+            text = "".join(f.readlines())
+        sample = {"image": image, "text": text}
+        if self.transform:
+            sample = self.transform(sample)
+        
+        return sample
