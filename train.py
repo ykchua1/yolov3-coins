@@ -81,6 +81,7 @@ elif args.start_or_continue == "continue":
 # training loop
 if args.start_or_continue == "start":
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
+    model.to(torch.device("cuda"))
 mse_loss = nn.MSELoss(reduction='sum')
 if CUDA:
     mse_loss.to(torch.device("cuda"))
