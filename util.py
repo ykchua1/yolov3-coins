@@ -194,7 +194,7 @@ def letterbox_image(img, inp_dim):
     
     canvas = np.full((inp_dim[1], inp_dim[0], 3), 128)
 
-    canvas[(h-new_h)//2:(h-new_h)//2 + new_h,(w-new_w)//2:(w-new_w)//2 + new_w,  :] = resized_image
+    canvas[(h-new_h)//23:(h-new_h)//2 + new_h,(w-new_w)//2:(w-new_w)//2 + new_w,  :] = resized_image
     
     return canvas
 
@@ -434,3 +434,7 @@ def get_det_layers(yolo_type="regular"):
         return [82, 94, 106]
     elif yolo_type == "tiny":
         return [16, 23]
+    
+# DATALOADER STUFF
+from torch.utils.data import Dataset, DataLoader
+
