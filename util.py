@@ -437,4 +437,32 @@ def get_det_layers(yolo_type="regular"):
     
 # DATALOADER STUFF
 from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+import os
 
+class PrepImage():
+    def __call__(self, sample):
+        image = prep_image(sample["image"], inp_dim=416)
+        return {"image": image, "text": sample["text"]}
+    
+class ImageAnnotationDataset(Dataset):
+    def __init__(self, root_dir, transform=transforms.Compose([PrepImage()])):
+        self.root_dir = root_dir
+        self.transform = transform
+        
+    def __len__(self):
+        lst = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
+        return len(lst)
+    
+    def __getitem__(self, idx):
+        im_names = list(filter(lambda x: x[-4:] == ".jpg", os.listdir(self.root_dir)))
+        im_names = [x[:-4] for x in im_names]
+        
+        image = cv2.imread(self.root_dir + im_names[idx] + ".jpg")
+        with open(self.root_dir + im_names[idx] + ".txt") as f:
+            text = "".join(f.readlines())
+        sample = {"image": image, "text": text}
+        if self.transform:
+            sample = self.transform(sample)
+        
+        return sample
