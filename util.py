@@ -466,9 +466,26 @@ class RandRotate(transforms.RandomRotation):
         
     def __call__(self, sample):
         image = sample["image"]
+        dim, _ = image.size
         angle = self.get_params(self.degrees)
         image = TF.rotate(image, angle, self.resample, self.expand, self.center, self.fill)
-        return {"image": image, "text": sample["text"]}
+        image = TF.center_crop(image, dim)
+        
+        text = sample["text"]
+        text_list = [line.split() for line in text.split("\n")[:-1]]
+        text_list = [[float(x) for x in line] for line in text_list]
+        print(angle)
+        R = np.array([[np.cos(np.deg2rad(-angle)), -np.sin(np.deg2rad(-angle))], [np.sin(np.deg2rad(-angle)), np.cos(np.deg2rad(-angle))]]) # rotation matrix
+        for i, line in enumerate(text_list):
+            xy = np.array([line[1], line[2]])
+            xy = xy - np.array([0.5, 0.5])
+            xy = np.dot(R, xy)
+            xy = xy + np.array([0.5, 0.5])
+            line[1] = xy[0]
+            line[2] = xy[1]
+            text_list[i] = " ".join(["{:.6f}".format(x) if i!=0 else str(int(x)) for i, x in enumerate(line)])
+        text = "\n".join(text_list) + "\n"
+        return {"image": image, "text": text}
     
 class WriteSample():
     def __init__(self, fp):
