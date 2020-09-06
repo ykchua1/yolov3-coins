@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 import cv2 
+from PIL import Image
 
 def unique(tensor):
     tensor_np = tensor.cpu().numpy()
@@ -437,13 +438,57 @@ def get_det_layers(yolo_type="regular"):
 # DATALOADER STUFF
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from torchvision.transforms import functional as TF
 import os
+import random
 
 class PrepImage():
     def __call__(self, sample):
         image = prep_image(sample["image"], inp_dim=416)
         image = image.squeeze(0)
         return {"image": image, "text": sample["text"]}
+    
+class CV2toPIL():
+    def __call__(self, sample):
+        image = sample["image"][:,:,[2,1,0]]
+        image = Image.fromarray(image)
+        return {"image": image, "text": sample["text"]}
+    
+class PILtoCV2():
+    def __call__(self, sample):
+        image = np.asarray(sample["image"])
+        image = image[:,:,[2,1,0]]
+        return {"image": image, "text": sample["text"]}
+    
+class RandRotate(transforms.RandomRotation):
+    def __init__(self, degrees, expand=True):
+        super().__init__(degrees, expand=expand, fill=127)
+        
+    def __call__(self, sample):
+        image = sample["image"]
+        angle = self.get_params(self.degrees)
+        image = TF.rotate(image, angle, self.resample, self.expand, self.center, self.fill)
+        return {"image": image, "text": sample["text"]}
+    
+class WriteSample():
+    def __init__(self, fp):
+        self.fp = fp
+        
+    def __call__(self, sample):
+        # assume that img is a cv2 numpy array (BGR)
+        img = sample["image"]
+        text = sample["text"]
+        dim = img.shape[0]
+        img = cv2.UMat(img)
+        colors = {0: (124,124,124), 1: (255,0,0), 2: (0,255,0), 3: (0,0,255)}
+        for line in text.split("\n")[:-1]:
+            x, y = float(line.split()[1]), float(line.split()[2])
+            c1 = (x - float(line.split()[3])/2, y - float(line.split()[4])/2)
+            c2 = (x + float(line.split()[3])/2, y + float(line.split()[4])/2)
+            c1 = tuple(int(np.rint(x*dim)) for x in c1)
+            c2 = tuple(int(np.rint(x*dim)) for x in c2)
+            cv2.rectangle(img, c1, c2, colors[int(line.split()[0])], 2)
+        cv2.imwrite(self.fp, img)
     
 class ImageAnnotationDataset(Dataset):
     def __init__(self, root_dir, transform=transforms.Compose([PrepImage()]), rng=False):
