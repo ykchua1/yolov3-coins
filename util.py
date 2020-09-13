@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 import cv2 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 def unique(tensor):
     tensor_np = tensor.cpu().numpy()
@@ -458,6 +458,12 @@ class PILtoCV2():
     def __call__(self, sample):
         image = np.asarray(sample["image"])
         image = image[:,:,[2,1,0]]
+        return {"image": image, "text": sample["text"]}
+    
+class FindEdges():
+    def __call__(self, sample):
+        image = sample["image"]
+        image = image.filter(ImageFilter.FIND_EDGES)
         return {"image": image, "text": sample["text"]}
     
 class RandRotate(transforms.RandomRotation):
