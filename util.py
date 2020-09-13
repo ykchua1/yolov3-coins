@@ -474,7 +474,7 @@ class RandRotate(transforms.RandomRotation):
         text = sample["text"]
         text_list = [line.split() for line in text.split("\n")[:-1]]
         text_list = [[float(x) for x in line] for line in text_list]
-        print(angle)
+        # print(angle)
         R = np.array([[np.cos(np.deg2rad(-angle)), -np.sin(np.deg2rad(-angle))], [np.sin(np.deg2rad(-angle)), np.cos(np.deg2rad(-angle))]]) # rotation matrix
         for i, line in enumerate(text_list):
             xy = np.array([line[1], line[2]])

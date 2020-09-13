@@ -87,7 +87,7 @@ mse_loss = nn.MSELoss(reduction='sum')
 if CUDA:
     mse_loss.to(torch.device("cuda"))
 
-dataset = ImageAnnotationDataset("./data/scattered_coins/train/", transform=transforms.Compose([PrepImage()]))
+dataset = ImageAnnotationDataset("./data/scattered_coins/train/", transform=transforms.Compose([CV2toPIL(), RandRotate(20), PILtoCV2(), PrepImage()]))
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 val_dataset = ImageAnnotationDataset("./data/scattered_coins/val/", transform=transforms.Compose([PrepImage()]), rng=3)
 val_dataloader = DataLoader(val_dataset, batch_size=3, shuffle=False, num_workers=0)
